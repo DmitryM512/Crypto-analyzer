@@ -1,0 +1,76 @@
+version: "3.3"
+services:
+  analyzer:
+    build:
+      context: .
+    container_name: signals
+    command: [ "python", "cli.py", "run-scheduler" ]
+    networks: [ "crypto_analyzer" ]
+    volumes: [ ".:/application/src" ]
+    depends_on: [ "pg" ]
+    restart: always
+
+
+  pg:
+    image: postgres:latest
+    container_name: signals_pg
+    networks: [ "crypto_analyzer" ]
+    hostname: pg
+    ports: [ "5433:5432" ]
+    volumes:
+      - ./db_init/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./signals_pg:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=analyzer
+      - POSTGRES_PASSWORD=analyzer
+      - POSTGRES_DB=main
+
+  screener_back:
+    build:
+      context: ./application
+    container_name: screener_back
+    command: [ "python", "bid_ask_ratio.py" ]
+    networks: [ "crypto_analyzer" ]
+    depends_on: [ "pg" ]
+    restart: always
+
+  agg_trade:
+    build:
+      context: ./agg_trade
+    container_name: agg_trade
+    command: [ "python", "agg_trade.py" ]
+    networks: [ "crypto_analyzer" ]
+    depends_on: [ "pg" ]
+    restart: always
+
+#  screener:
+#    build:
+#      context: ./screener
+#    container_name: screener
+#    networks: [ "crypto_analyzer" ]
+#    ports: ["8050:8050"]
+#    depends_on: [ "pg" ]
+#    restart: always
+#    command: ["python", "BA screener.py"]
+
+  st:
+    build:
+      context: ./st
+    container_name: st
+    networks: [ "crypto_analyzer" ]
+    ports: [ "8501:8501" ]
+    depends_on: [ "pg" ]
+    restart: always
+    command: [ "streamlit", "run", "st.py" ]
+
+
+
+
+
+#volumes:
+#  signals_pg:
+#    name: signals_pg
+
+networks:
+  crypto_analyzer:
+    name: crypto_analyzer
